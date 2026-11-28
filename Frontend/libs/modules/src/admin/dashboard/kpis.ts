@@ -148,7 +148,17 @@ export const VOLUNTEER_KPIS: readonly DashboardKpi[] = [
 ];
 
 /**
- * The line under a volunteer card, shorter than the catalog's description: the whole description
+ * The row under the volunteer cards: how fast a request is answered, and how many still-open ones have
+ * gone quiet. Both are counted over the tickets filed in the range, like the six above, and read
+ * as of now (the backend works out the wait and the quiet time against the clock, not the range's end).
+ */
+export const RESPONSE_KPIS: readonly DashboardKpi[] = [
+  { domain: 'tickets', metric: 'first_response_time', accent: 'secondary' },
+  { domain: 'tickets', metric: 'stale_tickets', accent: 'warning' },
+];
+
+/**
+ * The line under a card, shorter than the catalog's description: the whole description
  * said too much to read on a card, and widened it. It stays in the card's title.
  */
 export const VOLUNTEER_SHORT_LINES: Partial<
@@ -156,6 +166,8 @@ export const VOLUNTEER_SHORT_LINES: Partial<
 > = {
   volunteers_needed: '人力共要幾人（含已額滿、已結束）',
   volunteers_matched: '已被承接的名額（一人接兩筆算 2）',
+  first_response_time: '建立到第一位志工承接，取中位數',
+  stale_tickets: '還在處理中、超過 24 小時沒更新',
 };
 
 export const STATION_KPIS: readonly DashboardKpi[] = [
@@ -166,6 +178,7 @@ export const STATION_KPIS: readonly DashboardKpi[] = [
 export const DASHBOARD_KPIS: readonly DashboardKpi[] = [
   ...TICKET_KPIS,
   ...VOLUNTEER_KPIS,
+  ...RESPONSE_KPIS,
   ...STATION_KPIS,
 ];
 
@@ -358,7 +371,10 @@ export function formatKpiValue(
   value: number,
   unit: string,
 ): { value: string; unit: string } {
-  if (unit === '%') return { value: rateFormat.format(value), unit: '%' };
+  // Hours and percentages keep a decimal: 1.5 小時 must not read as 2.
+  if (unit === '%' || unit === '小時') {
+    return { value: rateFormat.format(value), unit };
+  }
   return { value: countFormat.format(value), unit };
 }
 

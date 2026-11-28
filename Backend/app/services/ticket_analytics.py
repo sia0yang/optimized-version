@@ -338,6 +338,113 @@ async def get_age_distribution(
     return rows
 
 
+# A ticket nobody has touched for this long counts as overdue for an update: the same line the
+# back office's ticket lists draw as "stale" (a day), so the number here and the badge there agree.
+STALE_AFTER_HOURS = 24
+
+
+async def get_stale_tickets(
+    db: AsyncSession,
+    *,
+    x: str | None,
+    x_granularity: str,
+    start_date: date | None,
+    end_date: date | None,
+    tz: ZoneInfo,
+    extra_filters: list | None = None,
+) -> list[dict]:
+    """How many still-open tickets have gone `STALE_AFTER_HOURS` without an update, as of now.
+
+    Open means unassigned or ongoing: a completed or canceled ticket has nothing left to update, so
+    counting it would only grow a pile nobody owes. The age is read from the ticket's own
+    `updated_at`, not from its needs or claims, matching the stale badge in the ticket lists.
+
+    One ungrouped number: `x`/`x_granularity` are accepted for the dispatch signature and unused.
+    The date range narrows which tickets are looked at by creation day, like `get_age_distribution`.
+    """
+    lower, upper = local_bounds(start_date, end_date, tz)
+    cutoff = func.now() - timedelta(hours=STALE_AFTER_HOURS)
+
+    query = (
+        select(func.count(Tickets.uuid).label("count"))
+        .select_from(Tickets)
+        .where(
+            *live_tickets(extra_filters),
+            _bucket_expr().in_(("unassigned", "ongoing")),
+            Tickets.updated_at < cutoff,
+            *(extra_filters or []),
+        )
+    )
+    if lower is not None:
+        query = query.where(Tickets.created_at >= lower)
+    if upper is not None:
+        query = query.where(Tickets.created_at < upper)
+
+    result = await db.execute(query)
+    return [dict(row._mapping) for row in result]
+
+
+async def get_first_response_time(
+    db: AsyncSession,
+    *,
+    x: str | None,
+    x_granularity: str,
+    start_date: date | None,
+    end_date: date | None,
+    tz: ZoneInfo,
+    extra_filters: list | None = None,
+) -> list[dict]:
+    """Median hours from a ticket being filed to the first person taking one of its needs.
+
+    "Responded" means someone is on one of its needs, the first of its assignments by `assigned_at`.
+    A ticket nobody has taken yet has no response to time, so it is left out (the unassigned count
+    says how many those are), and so is a canceled one: it was called off, not answered. A response
+    stamped before the ticket (imported or back-dated data) reads as 0, not a negative wait.
+
+    The median, not the mean: one ticket that sat for days would drag a mean far from what a typical
+    request waited. Point-in-time, not history: a claim since released is no longer in
+    `task_assignments`, so a ticket that only ever had released claims drops out of the sample.
+
+    One ungrouped number: `x`/`x_granularity` are accepted for the dispatch signature and unused.
+    The date range narrows which tickets are looked at by creation day.
+    """
+    lower, upper = local_bounds(start_date, end_date, tz)
+
+    first_taken = (
+        select(
+            TicketTask.ticket_uuid.label("ticket_uuid"),
+            func.min(TaskAssignment.assigned_at).label("first_at"),
+        )
+        .select_from(TicketTask)
+        .join(TaskAssignment, TaskAssignment.task_uuid == TicketTask.uuid)
+        .where(TicketTask.delete_at.is_(None))
+        .group_by(TicketTask.ticket_uuid)
+        .subquery()
+    )
+    wait_hours = func.greatest(func.extract("epoch", first_taken.c.first_at - Tickets.created_at), 0) / 3600.0
+
+    query = (
+        select(
+            func.percentile_cont(0.5).within_group(wait_hours).label("median_hours"),
+            func.count(Tickets.uuid).label("sample_size"),
+        )
+        .select_from(Tickets)
+        .join(first_taken, first_taken.c.ticket_uuid == Tickets.uuid)
+        .where(*live_tickets(extra_filters), _bucket_expr() != "canceled", *(extra_filters or []))
+    )
+    if lower is not None:
+        query = query.where(Tickets.created_at >= lower)
+    if upper is not None:
+        query = query.where(Tickets.created_at < upper)
+
+    result = await db.execute(query)
+    rows = [dict(row._mapping) for row in result]
+    for row in rows:
+        # No sampled ticket gives a NULL median; the card reads that as no wait to report.
+        row["hours"] = round(float(row["median_hours"]), 1) if row["median_hours"] is not None else 0.0
+    return rows
+
+
 async def get_time_to_completion(
     db: AsyncSession,
     *,

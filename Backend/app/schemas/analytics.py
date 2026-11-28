@@ -21,6 +21,8 @@ class TicketYMetric(str, Enum):
     canceled_tickets = "canceled_tickets"
     completion_rate = "completion_rate"
     age_distribution = "age_distribution"
+    stale_tickets = "stale_tickets"
+    first_response_time = "first_response_time"
     time_to_completion = "time_to_completion"
     net_backlog_change = "net_backlog_change"
     task_completion_distribution = "task_completion_distribution"

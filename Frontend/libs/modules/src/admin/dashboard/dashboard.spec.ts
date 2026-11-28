@@ -246,9 +246,9 @@ describe('dashboard states and filters', () => {
       start?.dispatchEvent(new Event('input', { bubbles: true }));
     });
     await settle();
-    // The seven counts and the seven charts; the three volunteer cards stand at the end date,
+    // The nine counts and the seven charts; the three volunteer cards stand at the end date,
     // which did not move, so they are not asked again.
-    expect(state.requests).toHaveLength(14);
+    expect(state.requests).toHaveLength(16);
     expect(
       state.requests.every(({ query }) => query.start_date === '2026-01-01'),
     ).toBe(true);
@@ -356,7 +356,7 @@ describe('dashboard states and filters', () => {
     expect(button).toBeDefined();
     await act(async () => button?.click());
     await settle();
-    expect(state.requests).toHaveLength(14);
+    expect(state.requests).toHaveLength(16);
     const ranges = new Set(
       state.requests.map(
         ({ query }) => `${query.start_date}/${query.end_date}`,

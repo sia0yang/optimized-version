@@ -1349,3 +1349,87 @@ async def _count_filtered(db, extra_filters) -> int:
         extra_filters=extra_filters,
     )
     return rows[0]["count"]
+
+
+@pytest.mark.asyncio
+async def test_stale_tickets_count_open_tickets_untouched_for_a_day(db):
+    """Only unassigned or ongoing tickets can be overdue, and only once a day has passed untouched."""
+    user_uuid = await _make_user(db)
+    now = datetime.now(UTC)
+
+    def ticket(status: str, touched: timedelta) -> Tickets:
+        row = _make_ticket(user_uuid, status=status)
+        row.updated_at = now - touched
+        db.add(row)
+        return row
+
+    ticket("pending", timedelta(hours=30))  # counts: open and untouched for over a day
+    ticket("in_progress", timedelta(hours=100))  # counts: ongoing counts as open too
+    ticket("pending", timedelta(hours=1))  # touched recently
+    ticket("completed", timedelta(hours=100))  # nothing left to update
+    ticket("cancelled", timedelta(hours=100))  # called off
+    await db.commit()
+
+    rows = await _metric(db, ticket_analytics.get_stale_tickets)
+    assert rows == [{"count": 2}]
+
+
+@pytest.mark.asyncio
+async def test_stale_tickets_is_zero_with_no_tickets(db):
+    """With no tickets the count is 0, not an empty result."""
+    assert await _metric(db, ticket_analytics.get_stale_tickets) == [{"count": 0}]
+
+
+@pytest.mark.asyncio
+async def test_first_response_time_is_the_median_wait_for_the_first_person_on_a_need(db):
+    """Filed to first taken, per ticket; a later claim, an unclaimed ticket and a canceled one add nothing."""
+    user_uuid = await _make_user(db)
+    other_uuid = await _make_user(db)
+    now = datetime.now(UTC)
+
+    async def ticket(*, waited: timedelta | None, status: str = "pending", later: timedelta | None = None):
+        row = _make_ticket(user_uuid, status=status)
+        row.created_at = now - timedelta(hours=10)
+        db.add(row)
+        await db.flush()
+        need = _make_task(str(row.uuid), user_uuid)
+        db.add(need)
+        await db.flush()
+        if waited is not None:
+            db.add_all(_taken(need, [user_uuid], at=row.created_at + waited))
+        if later is not None:
+            db.add_all(_taken(need, [other_uuid], at=row.created_at + later))
+
+    await ticket(waited=timedelta(hours=2), later=timedelta(hours=9))  # the later claim is not the first
+    await ticket(waited=timedelta(hours=6))
+    await ticket(waited=None)  # nobody yet: no response to time
+    await ticket(waited=timedelta(minutes=1), status="cancelled")  # called off, not answered
+    await db.commit()
+
+    rows = await _metric(db, ticket_analytics.get_first_response_time)
+    assert (rows[0]["hours"], rows[0]["sample_size"]) == (4.0, 2)
+
+
+@pytest.mark.asyncio
+async def test_first_response_time_reads_a_claim_dated_before_the_ticket_as_no_wait(db):
+    """Back-dated or imported data must not give a negative wait."""
+    user_uuid = await _make_user(db)
+    row = _make_ticket(user_uuid)
+    row.created_at = datetime.now(UTC) - timedelta(hours=5)
+    db.add(row)
+    await db.flush()
+    need = _make_task(str(row.uuid), user_uuid)
+    db.add(need)
+    await db.flush()
+    db.add_all(_taken(need, [user_uuid], at=row.created_at - timedelta(hours=3)))
+    await db.commit()
+
+    rows = await _metric(db, ticket_analytics.get_first_response_time)
+    assert rows[0]["hours"] == 0.0
+
+
+@pytest.mark.asyncio
+async def test_first_response_time_is_zero_when_nobody_has_been_taken(db):
+    """With no ticket answered the median is 0 and the sample is empty."""
+    rows = await _metric(db, ticket_analytics.get_first_response_time)
+    assert (rows[0]["hours"], rows[0]["sample_size"]) == (0.0, 0)

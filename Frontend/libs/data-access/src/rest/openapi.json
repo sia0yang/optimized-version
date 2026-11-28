@@ -6857,9 +6857,9 @@
             "required": true,
             "schema": {
               "$ref": "#/components/schemas/TicketYMetric",
-              "description": "Which metric's total to return. Only single-number metrics are accepted (ticket counts, completion_rate, duplicate_count, the volunteer and supply-need metrics, station_count, operating_station_count); a forced-shape or multi-series metric such as age_distribution or net_backlog_change is a 400. The number is in the metric's catalog `unit` — completion_rate is 0–100, not a fraction."
+              "description": "Which metric's total to return. Only single-number metrics are accepted (ticket counts, completion_rate, stale_tickets, first_response_time, duplicate_count, the volunteer and supply-need metrics, station_count, operating_station_count); a forced-shape or multi-series metric such as age_distribution or net_backlog_change is a 400. The number is in the metric's catalog `unit` — completion_rate is 0–100, not a fraction."
             },
-            "description": "Which metric's total to return. Only single-number metrics are accepted (ticket counts, completion_rate, duplicate_count, the volunteer and supply-need metrics, station_count, operating_station_count); a forced-shape or multi-series metric such as age_distribution or net_backlog_change is a 400. The number is in the metric's catalog `unit` — completion_rate is 0–100, not a fraction."
+            "description": "Which metric's total to return. Only single-number metrics are accepted (ticket counts, completion_rate, stale_tickets, first_response_time, duplicate_count, the volunteer and supply-need metrics, station_count, operating_station_count); a forced-shape or multi-series metric such as age_distribution or net_backlog_change is a 400. The number is in the metric's catalog `unit` — completion_rate is 0–100, not a fraction."
           },
           {
             "name": "start_date",
@@ -7631,9 +7631,9 @@
             "required": true,
             "schema": {
               "$ref": "#/components/schemas/StationYMetric",
-              "description": "Which metric's total to return. Only single-number metrics are accepted (ticket counts, completion_rate, duplicate_count, the volunteer and supply-need metrics, station_count, operating_station_count); a forced-shape or multi-series metric such as age_distribution or net_backlog_change is a 400. The number is in the metric's catalog `unit` — completion_rate is 0–100, not a fraction."
+              "description": "Which metric's total to return. Only single-number metrics are accepted (ticket counts, completion_rate, stale_tickets, first_response_time, duplicate_count, the volunteer and supply-need metrics, station_count, operating_station_count); a forced-shape or multi-series metric such as age_distribution or net_backlog_change is a 400. The number is in the metric's catalog `unit` — completion_rate is 0–100, not a fraction."
             },
-            "description": "Which metric's total to return. Only single-number metrics are accepted (ticket counts, completion_rate, duplicate_count, the volunteer and supply-need metrics, station_count, operating_station_count); a forced-shape or multi-series metric such as age_distribution or net_backlog_change is a 400. The number is in the metric's catalog `unit` — completion_rate is 0–100, not a fraction."
+            "description": "Which metric's total to return. Only single-number metrics are accepted (ticket counts, completion_rate, stale_tickets, first_response_time, duplicate_count, the volunteer and supply-need metrics, station_count, operating_station_count); a forced-shape or multi-series metric such as age_distribution or net_backlog_change is a 400. The number is in the metric's catalog `unit` — completion_rate is 0–100, not a fraction."
           },
           {
             "name": "start_date",
@@ -13770,6 +13770,8 @@
           "canceled_tickets",
           "completion_rate",
           "age_distribution",
+          "stale_tickets",
+          "first_response_time",
           "time_to_completion",
           "net_backlog_change",
           "task_completion_distribution",

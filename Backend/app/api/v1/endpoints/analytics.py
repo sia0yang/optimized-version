@@ -74,6 +74,8 @@ TICKET_METRIC_FNS = {
     TicketYMetric.canceled_tickets: partial(ticket_analytics.get_ticket_count, bucket="canceled"),
     TicketYMetric.completion_rate: ticket_analytics.get_completion_rate,
     TicketYMetric.age_distribution: ticket_analytics.get_age_distribution,
+    TicketYMetric.stale_tickets: ticket_analytics.get_stale_tickets,
+    TicketYMetric.first_response_time: ticket_analytics.get_first_response_time,
     TicketYMetric.time_to_completion: ticket_analytics.get_time_to_completion,
     TicketYMetric.net_backlog_change: ticket_analytics.get_net_backlog_change,
     TicketYMetric.task_completion_distribution: ticket_analytics.get_task_completion_distribution,
@@ -104,6 +106,8 @@ VALUE_KEYS = {
     TicketYMetric.completed_tickets: "count",
     TicketYMetric.canceled_tickets: "count",
     TicketYMetric.completion_rate: "rate",
+    TicketYMetric.stale_tickets: "count",
+    TicketYMetric.first_response_time: "hours",
     TicketYMetric.duplicate_count: "count",
     TicketYMetric.volunteers_needed: "count",
     TicketYMetric.volunteers_matched: "count",
@@ -121,8 +125,8 @@ _Y_DESCRIPTION = (
 )
 _VALUE_Y_DESCRIPTION = (
     "Which metric's total to return. Only single-number metrics are accepted "
-    "(ticket counts, completion_rate, duplicate_count, the volunteer and supply-need metrics, station_count, "
-    "operating_station_count); a forced-shape or "
+    "(ticket counts, completion_rate, stale_tickets, first_response_time, duplicate_count, "
+    "the volunteer and supply-need metrics, station_count, operating_station_count); a forced-shape or "
     "multi-series metric such as age_distribution or net_backlog_change is a 400. The "
     "number is in the metric's catalog `unit` — completion_rate is 0–100, not a fraction."
 )

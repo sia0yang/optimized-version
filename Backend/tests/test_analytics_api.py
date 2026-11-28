@@ -354,6 +354,8 @@ async def test_catalog_needs_no_domain_permission(client, db_session, redis):
         "canceled_tickets",
         "completion_rate",
         "age_distribution",
+        "stale_tickets",
+        "first_response_time",
         "time_to_completion",
         "net_backlog_change",
         "task_completion_distribution",
@@ -1752,3 +1754,49 @@ async def test_catalog_filter_values_come_only_from_what_the_caller_may_chart(cl
     filters = (await client.get(CATALOG_URL, headers=station_only)).json()["filters"]
     assert filters["tickets"]["areas"] == []
     assert _option_values(filters["tickets"]["types"]) == ["rescue", "supply", "medical", "hr"]
+
+
+@pytest.mark.asyncio
+async def test_value_of_the_response_and_staleness_metrics(client, db_session, redis):
+    """Both read as plain numbers on `/value`, 0 when there is nothing to report, in the catalog unit."""
+    user_uuid, headers = await _seeded_user(db_session, redis, Perm.TICKET_VIEW)
+    for metric in ("stale_tickets", "first_response_time"):
+        res = await client.get(TICKETS_VALUE_URL, params={"tz": "UTC", "y": metric}, headers=headers)
+        assert res.status_code == 200
+        assert res.json()["value"] == 0
+
+    now = datetime.now(UTC)
+    ticket = Tickets(
+        geometry=from_shape(Point(121.5, 25.0), srid=4326),
+        created_by=user_uuid,
+        title="t",
+        contact_name="c",
+        status="in_progress",
+        priority="high",
+        task_type="rescue",
+    )
+    ticket.created_at = now - timedelta(hours=40)
+    ticket.updated_at = now - timedelta(hours=30)
+    db_session.add(ticket)
+    await db_session.flush()
+    task = TicketTask(
+        ticket_uuid=ticket.uuid, task_type="rescue", task_name="task", source="user", created_by=user_uuid
+    )
+    db_session.add(task)
+    await db_session.flush()
+    db_session.add(
+        TaskAssignment(
+            task_uuid=task.uuid,
+            actor_uuid=user_uuid,
+            status="accepted",
+            assigned_at=now - timedelta(hours=37),
+        )
+    )
+    await db_session.commit()
+
+    stale = await client.get(TICKETS_VALUE_URL, params={"tz": "UTC", "y": "stale_tickets"}, headers=headers)
+    assert stale.json()["value"] == 1
+    wait = await client.get(
+        TICKETS_VALUE_URL, params={"tz": "UTC", "y": "first_response_time"}, headers=headers
+    )
+    assert wait.json()["value"] == 3.0

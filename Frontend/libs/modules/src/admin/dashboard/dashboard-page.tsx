@@ -55,6 +55,7 @@ import {
   rangeAsOfCaption,
   rangeCreatedCaption,
   rangeLengthDays,
+  RESPONSE_KPIS,
   VOLUNTEER_SHORT_LINES,
   type AnalyticsCatalog,
   type DashboardDateRange,
@@ -112,6 +113,14 @@ function kpiValueQuery(
  * distinguishes is distinguished here: `…` while the value is in flight, a red 讀取失敗 with the
  * message on `title` when it failed.
  */
+/** A card of the response row: drawn under the volunteer cards, not among the first six. */
+function isResponseKpi(kpi: DashboardKpi): boolean {
+  return RESPONSE_KPIS.some(
+    (response) =>
+      response.domain === kpi.domain && response.metric === kpi.metric,
+  );
+}
+
 function KpiValue({
   spec,
   availability,
@@ -753,7 +762,9 @@ export function DashboardPage() {
             ) : (
               <>
                 {renderKpis(
-                  tickets.visible.filter((card) => !card.kpi.asOf),
+                  tickets.visible.filter(
+                    (card) => !card.kpi.asOf && !isResponseKpi(card.kpi),
+                  ),
                   6,
                 )}
                 <Stack sx={{ gap: '8px' }}>
@@ -764,6 +775,16 @@ export function DashboardPage() {
                   )}
                   <Typography sx={caption}>
                     {`「${asOfCaption}」的總數。志工只算人力（不含物資、搜救、醫療）；缺口只算還在招募的，不是需求人數減已媒合。`}
+                  </Typography>
+                </Stack>
+                <Stack sx={{ gap: '8px' }}>
+                  {renderKpis(
+                    tickets.visible.filter((card) => isResponseKpi(card.kpi)),
+                    6,
+                  )}
+                  <Typography sx={caption}>
+                    首次回應時間：任務單建立到第一位志工承接，取中位數；還沒人承接與已取消的不算。逾期未更新：還在處理中、超過
+                    24 小時沒更新的任務單。
                   </Typography>
                 </Stack>
                 <ChartGrid

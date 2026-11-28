@@ -8,6 +8,8 @@ import {
   dateRangeProblem,
   kpiQueryRange,
   rangeAsOfCaption,
+  DASHBOARD_KPIS,
+  RESPONSE_KPIS,
   VOLUNTEER_KPIS,
   gapNeedsLine,
   supplyUnclaimedLine,
@@ -300,6 +302,33 @@ describe('dateRangeProblem', () => {
         applied,
       ),
     ).toMatch(/^日期無效/);
+  });
+});
+
+describe('the response cards', () => {
+  it('are how fast a request is answered, then how many open ones have gone quiet', () => {
+    expect(RESPONSE_KPIS.map((kpi) => kpi.metric)).toEqual([
+      'first_response_time',
+      'stale_tickets',
+    ]);
+    expect(RESPONSE_KPIS.map((kpi) => kpi.accent)).toEqual([
+      'secondary',
+      'warning',
+    ]);
+  });
+
+  it('are counted over the range, not as a running total, and are queried like every other card', () => {
+    for (const kpi of RESPONSE_KPIS) {
+      expect(kpi.asOf).toBeUndefined();
+      expect(DASHBOARD_KPIS).toContain(kpi);
+    }
+  });
+});
+
+describe('formatKpiValue for hours', () => {
+  it('keeps one decimal, so 1.5 小時 does not read as 2', () => {
+    expect(formatKpiValue(1.5, '小時')).toEqual({ value: '1.5', unit: '小時' });
+    expect(formatKpiValue(4, '小時')).toEqual({ value: '4', unit: '小時' });
   });
 });
 
