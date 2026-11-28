@@ -74,6 +74,9 @@ function SuspectTicketCard({
   const meters = distanceToTicketM(from, fields);
   // No ticket number: the site shows none to the public.
   const filedAt = formatTaiwanTime(fields?.createdAt);
+  // Said only when it differs, so a ticket nobody touched does not repeat its own time.
+  const changedAt = formatTaiwanTime(fields?.updatedAt);
+  const showChangedAt = Boolean(changedAt) && changedAt !== filedAt;
   // Most likely sent before and thought lost.
   const mine = isTicketRequester(fields?.createdBy, viewerId);
   const reason = {
@@ -133,6 +136,7 @@ function SuspectTicketCard({
               }}
             >
               {filedAt} 建立
+              {showChangedAt ? ` · ${changedAt} 更新` : ''}
             </Typography>
           ) : null}
         </Stack>

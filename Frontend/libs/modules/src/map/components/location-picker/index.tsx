@@ -19,6 +19,11 @@ import { Button, designTokens, displayTextSize } from '@rescue-frontend/ui';
 
 import { useEventMapView } from '../../hooks/use-event-map-view';
 import { shouldAutoLocate } from './auto-locate';
+import {
+  locateFailureMessage,
+  locateFailureOf,
+  type LocateFailure,
+} from './locate-error';
 import type { PickedPoint } from './types';
 
 export type { PickedPoint };
@@ -113,6 +118,7 @@ export function LocationPicker({
   autoLocate = true,
 }: LocationPickerProps) {
   const [status, setStatus] = useState<LocateStatus>('idle');
+  const [failure, setFailure] = useState<LocateFailure>('unavailable');
   const changePoint = useEventCallback(onChange);
   const mountedRef = useRef(true);
   const [initialValue] = useState(value);
@@ -127,6 +133,7 @@ export function LocationPicker({
   const locate = useCallback(
     (asked: boolean) => {
       if (!('geolocation' in navigator)) {
+        setFailure('unsupported');
         setStatus('error');
         return;
       }
@@ -151,8 +158,9 @@ export function LocationPicker({
             source: 'gps',
           });
         },
-        () => {
+        (error) => {
           if (mountedRef.current) {
+            setFailure(locateFailureOf(error));
             setStatus('error');
           }
         },
@@ -259,7 +267,7 @@ export function LocationPicker({
         >
           <Box component={CircleAlert} sx={{ width: 14, height: 14 }} />
           <Typography sx={{ fontSize: displayTextSize[12], lineHeight: 1.5 }}>
-            拿不到定位，請在地圖上點一下
+            {locateFailureMessage(failure)}
           </Typography>
         </Stack>
       ) : null}
